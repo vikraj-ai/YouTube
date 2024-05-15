@@ -9,7 +9,7 @@
   
   <style>
     body {
-      font-family: 'poppins', Arial, sans-serif;
+      font-family: 'Roboto', Arial, sans-serif;
       margin: 0;
       padding: 0;
       background-color: #f8f9fa;
@@ -29,9 +29,7 @@
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
       overflow: hidden;
       cursor: pointer;
-    
-       box-shadow: 0 0 10px 1px #FF7474;
-    
+      box-shadow: 0 0 10px 1px #FF7474;
     }
 
     .video-thumbnail {
@@ -80,15 +78,18 @@
       text-align: center;
     }
 
-    #searchInput {
+    #searchInput,
+    #channelInput {
       width: 60%;
       padding: 10px;
       border: 1px solid #ccc;
       border-radius: 5px;
       margin-right: 10px;
+      margin-bottom: 10px;
     }
 
-    #searchIcon {
+    #searchIcon,
+    #channelSearchIcon {
       padding: 10px 20px;
       background-color: #ff0000;
       color: #fff;
@@ -100,17 +101,46 @@
     #results-container {
       padding: 20px;
     }
+    /* Style for the dropdown menu label */
+label {
+  font-size: 16px;
+  font-weight: bold;
+  margin-right: 10px;
+}
+
+/* Style for the dropdown menu */
+select {
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+/* Additional styling for the container */
+
   </style>
 </head>
 <body>
-   
+ 
+  
 <div class="container">
     <input type="text" id="searchInput" placeholder="Search for videos...">
     <button id="searchIcon" onclick="searchVideos()"><i class="fas fa-search"></i> Search</button>
+    <br>
+    <input type="text" id="channelInput" placeholder="Search by channel...">
+    <button id="channelSearchIcon" onclick="searchChannelVideos()"><i class="fas fa-search"></i> Search</button>
+     <label for="resultsPerPage">Results per page:</label>
+    <select id="resultsPerPage" onchange="updateResultsPerPage()">
+      <option value="5">5</option>
+      <option value="10">10</option>
+      <option value="15">15</option>
+      <option value="20">20</option>
+    </select>
     <div id="results"></div>
     <div id="searchHistory" class="hidden"></div>
 </div>
-
+   
 <script>
   const API_KEYS = [
     'AIzaSyDZkrFG_XDpogWAbo_U7aYN2tnKk7tXUSo',
@@ -120,7 +150,9 @@
     'AIzaSyA-lAzwcb8aFBrJCYvfzPCUlWNhk3oFhwo'
   ];
   let currentApiKeyIndex = 0;
-  const forbiddenKeywords = ['sex', 'porn', 'adult', 'xxx', 'nude', 'nsfw','mia khalifa','sunny leone'];
+  const forbiddenKeywords = ['sex', 'porn', 'adult', 'xxx', 'nude', 'nsfw', 'mia khalifa', 'sunny leone'];
+
+  let resultsPerPage = 5; // Default number of results per page
 
   document.addEventListener('DOMContentLoaded', function() {
     displaySearchHistory();
@@ -128,15 +160,14 @@
 
   function searchVideos() {
     const searchQuery = document.getElementById('searchInput').value.trim();
-    const apiUrl = `https://www.googleapis.com/youtube/v3/search?key=${API_KEYS[currentApiKeyIndex]}&part=snippet&type=video&q=${searchQuery}&videoCategoryId=26&safeSearch=strict`;
+    const apiUrl = `https://www.googleapis.com/youtube/v3/search?key=${API_KEYS[currentApiKeyIndex]}&part=snippet&type=video&q=${searchQuery}&videoCategoryId=27&safeSearch=strict&videoDuration=long&maxResults=${resultsPerPage}`;
 
     fetch(apiUrl)
       .then(response => {
         if (!response.ok) {
           if (response.status === 403 && currentApiKeyIndex < API_KEYS.length - 1) {
-            // If 403 error and there are more keys, try the next key
             currentApiKeyIndex++;
-            searchVideos(); // Retry search with the next key
+            searchVideos();
           } else {
             throw new Error('Failed to fetch');
           }
@@ -154,7 +185,6 @@
             const videoId = item.id.videoId;
             const videoThumbnail = item.snippet.thumbnails.high.url;
 
-            // Filter out results based on forbidden keywords
             if (!containsForbiddenKeywords(videoTitle) && !containsForbiddenKeywords(videoDescription)) {
               const videoCard = document.createElement('div');
               videoCard.classList.add('video-card');
@@ -168,7 +198,6 @@
             }
           });
 
-          // Hide search history
           const searchHistory = document.getElementById('searchHistory');
           searchHistory.classList.add('hidden');
         } else {
@@ -177,6 +206,92 @@
       })
       .catch(error => {
         console.error('Error searching videos:', error);
+      });
+  }
+
+  function searchChannelVideos() {
+    const channelName = document.getElementById('channelInput').value.trim();
+    const apiUrl = `https://www.googleapis.com/youtube/v3/search?key=${API_KEYS[currentApiKeyIndex]}&part=snippet&type=channel&q=${channelName}&safeSearch=strict`;
+
+    fetch(apiUrl)
+      .then(response => {
+        if (!response.ok) {
+          if (response.status === 403 && currentApiKeyIndex < API_KEYS.length - 1) {
+            currentApiKeyIndex++;
+            searchChannelVideos();
+          } else {
+            throw new Error('Failed to fetch');
+          }
+        }
+        return response.json();
+      })
+      .then(data => {
+        if (data.items && data.items.length > 0) {
+          const channelId = data.items[0].id.channelId;
+          fetchChannelVideos(channelId);
+        } else {
+          document.getElementById('results').innerHTML = '<p>No channels found.</p>';
+        }
+      })
+      .catch(error => {
+        console.error('Error searching channel:', error);
+      });
+  }
+
+  function fetchChannelVideos(channelId) {
+    const apiUrl = `https://www.googleapis.com/youtube/v3/search?key=${API_KEYS[currentApiKeyIndex]}&part=snippet&type=video&channelId=${channelId}&videoDuration=long&videoCategoryId=27&safeSearch=strict&maxResults=${resultsPerPage}`;
+
+    fetch(apiUrl)
+      .then(response => {
+        if (!response.ok) {
+          if (response.status === 403 && currentApiKeyIndex < API_KEYS.length - 1) {
+            currentApiKeyIndex++;
+            fetchChannelVideos(channelId);
+          } else {
+            throw new Error('Failed to fetch');
+          }
+        }
+        return response.json();
+      })
+      .then(data => {
+        const resultsContainer = document.getElementById('results');
+        resultsContainer.innerHTML = '';
+
+        if (data.items) {
+          // Sort videos by published date in descending order
+          const sortedItems = data.items.sort((a, b) => {
+            const dateA = new Date(a.snippet.publishedAt);
+            const dateB = new Date(b.snippet.publishedAt);
+            return dateB - dateA;
+          });
+
+          sortedItems.forEach(item => {
+            const videoTitle = item.snippet.title;
+            const videoDescription = item.snippet.description;
+            const videoId = item.id.videoId;
+            const videoThumbnail = item.snippet.thumbnails.high.url;
+
+            if (!containsForbiddenKeywords(videoTitle) && !containsForbiddenKeywords(videoDescription)) {
+              const videoCard = document.createElement('div');
+              videoCard.classList.add('video-card');
+              videoCard.innerHTML = `
+                <img class="video-thumbnail" src="${videoThumbnail}" alt="${videoTitle}" onclick="playVideo('${videoId}')">
+                <div class="video-info">
+                  <h3 class="video-title">${videoTitle}</h3>
+                </div>
+              `;
+              resultsContainer.appendChild(videoCard);
+            }
+          });
+
+          const searchHistory = document.getElementById('searchHistory');
+          searchHistory.classList.add('hidden');
+        } else {
+          resultsContainer.innerHTML = '<p>No videos found.</p>';
+        }
+      })
+      .catch(error => {
+        console.error('Error fetching channel videos:', error);
       });
   }
 
@@ -207,10 +322,348 @@
       });
       historyContainer.appendChild(historyList);
 
-      // Show search history
       historyContainer.classList.remove('hidden');
     }
   }
+
+  function updateResultsPerPage() {
+    resultsPerPage = parseInt(document.getElementById('resultsPerPage').value);
+    searchVideos();
+  }
 </script>
 </body>
-</html>
+</html><!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YouTube Video Search</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+  
+  <style>
+    body {
+      font-family: 'Roboto', Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f8f9fa;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 50px auto;
+      text-align: center;
+    }
+
+    .video-card {
+      width: calc(99.33% - 20px);
+      margin: 10px;
+      background-color: #fff;
+      border-radius: 5px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+      cursor: pointer;
+      box-shadow: 0 0 10px 1px #FF7474;
+    }
+
+    .video-thumbnail {
+      width: 100%;
+      height: auto;
+    }
+
+    .video-info {
+      padding: 10px;
+    }
+
+    .video-title {
+      margin-top: 0;
+      margin-bottom: 5px;
+      font-size: 14px;
+      color: #333;
+    }
+
+    #searchHistory {
+      margin-top: 30px;
+    }
+
+    #searchHistory h2 {
+      margin-bottom: 10px;
+      font-size: 18px;
+    }
+
+    #searchHistory ul {
+      list-style-type: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    #searchHistory li {
+      font-size: 16px;
+      margin-bottom: 5px;
+    }
+
+    .hidden {
+      display: none;
+    }
+    
+    #search-container {
+      background-color: #f9f9f9;
+      padding: 20px;
+      text-align: center;
+    }
+
+    #searchInput,
+    #channelInput {
+      width: 60%;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      margin-right: 10px;
+      margin-bottom: 10px;
+    }
+
+    #searchIcon,
+    #channelSearchIcon {
+      padding: 10px 20px;
+      background-color: #ff0000;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    #results-container {
+      padding: 20px;
+    }
+    /* Style for the dropdown menu label */
+label {
+  font-size: 16px;
+  font-weight: bold;
+  margin-right: 10px;
+}
+
+/* Style for the dropdown menu */
+select {
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+/* Additional styling for the container */
+
+  </style>
+</head>
+<body>
+ 
+  
+<div class="container">
+    <input type="text" id="searchInput" placeholder="Search for videos...">
+    <button id="searchIcon" onclick="searchVideos()"><i class="fas fa-search"></i> Search</button>
+    <br>
+    <input type="text" id="channelInput" placeholder="Search by channel...">
+    <button id="channelSearchIcon" onclick="searchChannelVideos()"><i class="fas fa-search"></i> Search</button>
+     <label for="resultsPerPage">Results per page:</label>
+    <select id="resultsPerPage" onchange="updateResultsPerPage()">
+      <option value="5">5</option>
+      <option value="10">10</option>
+      <option value="15">15</option>
+      <option value="20">20</option>
+    </select>
+    <div id="results"></div>
+    <div id="searchHistory" class="hidden"></div>
+</div>
+   
+<script>
+  const API_KEYS = [
+    'AIzaSyDZkrFG_XDpogWAbo_U7aYN2tnKk7tXUSo',
+    'AIzaSyAQ0FWsp_Y6FAiXtbWb5c4yYKcT4F7GPo0',
+    'AIzaSyBkmds_4nSyGzTpUSgvU8TZ8mxTc51MQ9g',
+    'AIzaSyBpV-5uzBfmL_JkCohsCWtCL_rE94Kj0pI',
+    'AIzaSyA-lAzwcb8aFBrJCYvfzPCUlWNhk3oFhwo'
+  ];
+  let currentApiKeyIndex = 0;
+  const forbiddenKeywords = ['sex', 'porn', 'adult', 'xxx', 'nude', 'nsfw', 'mia khalifa', 'sunny leone'];
+
+  let resultsPerPage = 5; // Default number of results per page
+
+  document.addEventListener('DOMContentLoaded', function() {
+    displaySearchHistory();
+  });
+
+  function searchVideos() {
+    const searchQuery = document.getElementById('searchInput').value.trim();
+    const apiUrl = `https://www.googleapis.com/youtube/v3/search?key=${API_KEYS[currentApiKeyIndex]}&part=snippet&type=video&q=${searchQuery}&videoCategoryId=27&safeSearch=strict&videoDuration=long&maxResults=${resultsPerPage}`;
+
+    fetch(apiUrl)
+      .then(response => {
+        if (!response.ok) {
+          if (response.status === 403 && currentApiKeyIndex < API_KEYS.length - 1) {
+            currentApiKeyIndex++;
+            searchVideos();
+          } else {
+            throw new Error('Failed to fetch');
+          }
+        }
+        return response.json();
+      })
+      .then(data => {
+        const resultsContainer = document.getElementById('results');
+        resultsContainer.innerHTML = '';
+
+        if (data.items) {
+          data.items.forEach(item => {
+            const videoTitle = item.snippet.title;
+            const videoDescription = item.snippet.description;
+            const videoId = item.id.videoId;
+            const videoThumbnail = item.snippet.thumbnails.high.url;
+
+            if (!containsForbiddenKeywords(videoTitle) && !containsForbiddenKeywords(videoDescription)) {
+              const videoCard = document.createElement('div');
+              videoCard.classList.add('video-card');
+              videoCard.innerHTML = `
+                <img class="video-thumbnail" src="${videoThumbnail}" alt="${videoTitle}" onclick="playVideo('${videoId}')">
+                <div class="video-info">
+                  <h3 class="video-title">${videoTitle}</h3>
+                </div>
+              `;
+              resultsContainer.appendChild(videoCard);
+            }
+          });
+
+          const searchHistory = document.getElementById('searchHistory');
+          searchHistory.classList.add('hidden');
+        } else {
+          resultsContainer.innerHTML = '<p>No videos found.</p>';
+        }
+      })
+      .catch(error => {
+        console.error('Error searching videos:', error);
+      });
+  }
+
+  function searchChannelVideos() {
+    const channelName = document.getElementById('channelInput').value.trim();
+    const apiUrl = `https://www.googleapis.com/youtube/v3/search?key=${API_KEYS[currentApiKeyIndex]}&part=snippet&type=channel&q=${channelName}&safeSearch=strict`;
+
+    fetch(apiUrl)
+      .then(response => {
+        if (!response.ok) {
+          if (response.status === 403 && currentApiKeyIndex < API_KEYS.length - 1) {
+            currentApiKeyIndex++;
+            searchChannelVideos();
+          } else {
+            throw new Error('Failed to fetch');
+          }
+        }
+        return response.json();
+      })
+      .then(data => {
+        if (data.items && data.items.length > 0) {
+          const channelId = data.items[0].id.channelId;
+          fetchChannelVideos(channelId);
+        } else {
+          document.getElementById('results').innerHTML = '<p>No channels found.</p>';
+        }
+      })
+      .catch(error => {
+        console.error('Error searching channel:', error);
+      });
+  }
+
+  function fetchChannelVideos(channelId) {
+    const apiUrl = `https://www.googleapis.com/youtube/v3/search?key=${API_KEYS[currentApiKeyIndex]}&part=snippet&type=video&channelId=${channelId}&videoDuration=long&videoCategoryId=27&safeSearch=strict&maxResults=${resultsPerPage}`;
+
+    fetch(apiUrl)
+      .then(response => {
+        if (!response.ok) {
+          if (response.status === 403 && currentApiKeyIndex < API_KEYS.length - 1) {
+            currentApiKeyIndex++;
+            fetchChannelVideos(channelId);
+          } else {
+            throw new Error('Failed to fetch');
+          }
+        }
+        return response.json();
+      })
+      .then(data => {
+        const resultsContainer = document.getElementById('results');
+        resultsContainer.innerHTML = '';
+
+        if (data.items) {
+          // Sort videos by published date in descending order
+          const sortedItems = data.items.sort((a, b) => {
+            const dateA = new Date(a.snippet.publishedAt);
+            const dateB = new Date(b.snippet.publishedAt);
+            return dateB - dateA;
+          });
+
+          sortedItems.forEach(item => {
+            const videoTitle = item.snippet.title;
+            const videoDescription = item.snippet.description;
+            const videoId = item.id.videoId;
+            const videoThumbnail = item.snippet.thumbnails.high.url;
+
+            if (!containsForbiddenKeywords(videoTitle) && !containsForbiddenKeywords(videoDescription)) {
+              const videoCard = document.createElement('div');
+              videoCard.classList.add('video-card');
+              videoCard.innerHTML = `
+                <img class="video-thumbnail" src="${videoThumbnail}" alt="${videoTitle}" onclick="playVideo('${videoId}')">
+                <div class="video-info">
+                  <h3 class="video-title">${videoTitle}</h3>
+                </div>
+              `;
+              resultsContainer.appendChild(videoCard);
+            }
+          });
+
+          const searchHistory = document.getElementById('searchHistory');
+          searchHistory.classList.add('hidden');
+        } else {
+          resultsContainer.innerHTML = '<p>No videos found.</p>';
+        }
+      })
+      .catch(error => {
+        console.error('Error fetching channel videos:', error);
+      });
+  }
+
+  function containsForbiddenKeywords(text) {
+    const lowerCaseText = text.toLowerCase();
+    return forbiddenKeywords.some(keyword => lowerCaseText.includes(keyword));
+  }
+
+  function playVideo(videoId) {
+    window.location.href = `video.html?id=${videoId}`;
+  }
+
+  function displaySearchHistory() {
+    const searchHistory = JSON.parse(localStorage.getItem('searchHistory')) || [];
+    const historyContainer = document.getElementById('searchHistory');
+    historyContainer.innerHTML = '';
+
+    if (searchHistory.length > 0) {
+      const historyTitle = document.createElement('h2');
+      historyTitle.textContent = 'Search History:';
+      historyContainer.appendChild(historyTitle);
+
+      const historyList = document.createElement('ul');
+      searchHistory.forEach(query => {
+        const listItem = document.createElement('li');
+        listItem.textContent = query;
+        historyList.appendChild(listItem);
+      });
+      historyContainer.appendChild(historyList);
+
+      historyContainer.classList.remove('hidden');
+    }
+  }
+
+  function updateResultsPerPage() {
+    resultsPerPage = parseInt(document.getElementById('resultsPerPage').value);
+    searchVideos();
+  }
+</script>
+</body>
+</html></html>
